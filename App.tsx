@@ -13,22 +13,46 @@ import {
 import {NativeModules} from 'react-native';
 const {ShuftiproReactNativeModule} = NativeModules;
 import WebView, {WebViewMessageEvent} from 'react-native-webview'; // Import type
+import {Buffer} from 'buffer';
+
+interface ekycType {
+  client_id: string;
+  secret_key: string;
+  authorization: string;
+}
+
+interface ekycUserDataType {
+  first_name: string;
+  last_name: string;
+  middle_name: string;
+  dob: string;
+  email: string;
+}
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
   const [token, setToken] = useState();
+  const [ekycCred, setekycCred] = useState<ekycType>();
 
+  const [ekycUserData, setekycUserData] = useState<ekycUserDataType>();
+  const [faceVerification, setfaceVerification] = useState(true);
+  const [documentVerification, setdocumentVerification] = useState(true);
   const handleWebViewMessage = (event: WebViewMessageEvent) => {
-    console.log('event', JSON.parse(event.nativeEvent.data));
+    // console.log('event', JSON.parse(event.nativeEvent.data));
     const data = JSON.parse(event.nativeEvent.data);
     setToken(data?.token);
     fetchekycCred();
+  };
+  const generateUniqueReference = (): string => {
+    const timestamp = Date.now().toString(); // Unique timestamp
+    const randomPart = Math.random().toString(36).substring(2, 10); // Random alphanumeric
+    const uniqueReference = `${timestamp}-${randomPart}`; // Combine both parts
+    return uniqueReference.slice(0, 250); // Ensure it's within the maximum limit
   };
 
   const fetchekycCred = async () => {
     console.log('fetch');
     try {
-      console.log('token', token);
       const response = await axios.get(
         'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-credentials',
         {
@@ -37,10 +61,15 @@ function App(): React.JSX.Element {
           },
         },
       );
-      console.log('response', response.data); // Update state with API data
-      fetchUserDetails();
+      console.log('response', JSON.stringify(response)); // Update state with API data
+
+      if (response?.data?.status_code == 200) {
+        console.log('responsedata[0]', response.data.data[0]);
+        setekycCred(response.data.data[0]);
+        fetchUserDetails();
+      }
     } catch (err: any) {
-      console.log('error', err.message); // Handle error
+      console.log('error22', err.message); // Handle error
     }
   };
 
@@ -56,105 +85,130 @@ function App(): React.JSX.Element {
           },
         },
       );
-      console.log('responseuserdetails', response.data); // Update state with API data
+      if (response?.data?.status_code == 200) {
+        setekycUserData(response.data.data[0]);
+        console.log('responseuserdetails', response.data); // Update state with API data
+        handleButtonPress();
+      }
     } catch (err: any) {
-      console.log('error', err.message); // Handle error
+      console.log('error111', err.message); // Handle error
     }
   };
 
   const performVerification = async () => {
-    let decodedClientId = Buffer.from(clientid, 'base64').toString('utf8');
-    let decodedSecretKey = Buffer.from(secretkey, 'base64').toString('utf8');
+    console.log('perrrr');
+    console.log('condition1', ekycCred);
+    console.log('condition2', ekycCred?.client_id);
 
-    if (!decodedClientId || !decodedSecretKey) {
-      console.error('Invalid input format!');
-      return;
-    }
+    if (ekycCred && ekycCred?.client_id) {
+      console.log('conditionekyc');
+      let decodedClientId;
+      try {
+        decodedClientId = Buffer.from(ekycCred.client_id, 'base64').toString(
+          'utf8',
+        );
+        console.log('ddd', decodedClientId);
+      } catch (e) {
+        console.log('errorsinbugger', e);
+      }
 
-    let dataDictionary = {
-      reference: 'uniqueReference',
-      country: '',
-      language: 'EN',
-      email: 'ad@example.com',
-      callback_url:
-        'https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-callback',
-      redirect_url: 'https://www.mydummy.shuftipro.com/',
-      verification_mode: 'image',
-      show_consent: '1',
-      show_privacy_policy: '1',
-      show_results: '1',
-      allow_online: '1',
-      allow_offline: '0',
-    };
+      let decodedSecretKey = Buffer.from(
+        ekycCred.secret_key,
+        'base64',
+      ).toString('utf8');
+      console.log('ddddccc', decodedClientId, decodedSecretKey);
 
-    if (faceVerification) {
-      dataDictionary.face = {
-        proof: '',
-        allow_online: '1',
-        allow_offline: '0',
-        document_number: '',
-        expiry_date: '',
-        issue_date: '',
+      if (!decodedClientId || !decodedSecretKey) {
+        console.log('Invalid input format!');
+        return;
+      }
+      let authKeys = {
+        auth_type: 'basic_auth',
+        client_id: decodedClientId,
+        secret_key: decodedSecretKey,
       };
-    }
-
-    if (documentVerification) {
-      dataDictionary.document = {
-        supported_types: ['passport', 'id_card', 'driving_license'],
-        name: {
-          first_name: firstNameStr,
-          middle_name: middileNameStr,
-          last_name: lastNameStr,
+      console.log('authkeys', authKeys);
+      // const configObject = {
+      //   base_url: 'api.shuftipro.com',
+      //   consent_age: 16,
+      // };
+      const configObject = {
+        open_webview: false,
+        asyncRequest: false,
+        captureEnabled: false,
+      };
+      console.log('configObject', configObject);
+      const verificationObject = {
+        reference: generateUniqueReference(), // Unique reference ID
+        country: 'US', // Country of the user
+        language: 'EN', // Language preference
+        email: 'johndoe@example.com', // User email
+        callback_url:
+          'https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-callback',
+        redirect_url: 'https://www.mydummy.shuftipro.com/',
+        show_consent: 1, // Show consent in the verification process (1 for yes)
+        show_results: 1, // Show results in the process (1 for yes)
+        verification_mode: 'image_only', // Mode of verification, e.g., "image_only"
+        show_privacy_policy: 1, // Show privacy policy (1 for yes)
+        face: {
+          proof: '', // Proof for face verification (e.g., photo or other identifiers)
         },
-        backside_proof_required: '1',
-        dob: dobStr,
-        allow_online: '1',
-        allow_offline: '0',
-      };
-    }
-
-    let authKeys = {
-      auth_type: 'basic_auth',
-      client_id: decodedClientId,
-      secret_key: decodedSecretKey,
-    };
-
-    try {
-      const response = await axios.post(
-        'https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-response-callback',
-        JSON.stringify(dataDictionary),
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
+        document: {
+          supported_types: [
+            'passport',
+            'id_card',
+            'driving_license',
+            'credit_or_debit_card',
+          ], // Supported document types
+          name: {
+            first_name: ekycUserData?.first_name || '',
+            middle_name: ekycUserData?.middle_name || '',
+            last_name: ekycUserData?.last_name || '',
           },
+          dob: ekycUserData?.dob || '',
+          document_number: 'A1234567', // Document number (passport, id card, etc.)
+          expiry_date: '2030-01-01', // Expiry date of the document
+          issue_date: '2020-01-01', // Issue date of the document
+          fetch_enhanced_data: '', // Additional data retrieval (if any)
+          gender: 'M', // Gender of the user (M for male, F for female, etc.)
+          backside_proof_required: '1', // 0 for no, 1 for yes (whether backside proof is required)
+        },
+      };
+
+      console.log('abovetrybock');
+
+      console.log('conditionekyctryblock');
+
+      ShuftiproReactNativeModule.verify(
+        JSON.stringify(verificationObject),
+        JSON.stringify(authKeys),
+        JSON.stringify(configObject),
+        (res: any) => {
+          console.log('eeekkkk');
+          const parsedResponse = JSON.parse(res); // Parse the JSON string into an object
+          console.log('parsed', parsedResponse);
+          const event = parsedResponse.event; // Access the value of the "event" property
+          console.log('Event:', event);
+
+          if (event === 'verification.accepted') {
+            // Verification accepted callback
+            console.log('event1veri');
+          }
+          if (event === 'verification.declined') {
+            console.log('2222');
+            // Verification declined callback
+          }
+          if (event === 'verification.cancelled') {
+            // This callback is returned when verification is cancelled midway by the end user
+            console.log('3333');
+          }
         },
       );
-
-      const result = response.data;
-      console.log('Response from SDK:', result);
-
-      if (result.message === 'Success') {
-        Alert.alert('Success!', 'eKYC verification completed.', [
-          {
-            text: 'Okay',
-            onPress: () => navigation.popToTop(),
-          },
-        ]);
-      } else {
-        Alert.alert('Error', 'Verification failed. Please retry.');
-      }
-    } catch (error) {
-      console.error('Error during verification:', error);
     }
   };
 
   const handleButtonPress = () => {
-    if (startBtnTitle === 'Retry') {
-      handleRetry();
-    } else {
-      performVerification();
-    }
+    performVerification();
   };
 
   return (
