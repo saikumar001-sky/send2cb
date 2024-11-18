@@ -1,98 +1,172 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import axios from 'axios';
+import React, {useState} from 'react';
 
-import React from 'react';
-import type {PropsWithChildren} from 'react';
 import {
+  Alert,
+  Modal,
   SafeAreaView,
-  ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native';
-
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
-}
+import {NativeModules} from 'react-native';
+const {ShuftiproReactNativeModule} = NativeModules;
+import WebView, {WebViewMessageEvent} from 'react-native-webview'; // Import type
 
 function App(): React.JSX.Element {
   const isDarkMode = useColorScheme() === 'dark';
+  const [token, setToken] = useState();
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+  const handleWebViewMessage = (event: WebViewMessageEvent) => {
+    console.log('event', JSON.parse(event.nativeEvent.data));
+    const data = JSON.parse(event.nativeEvent.data);
+    setToken(data?.token);
+    fetchekycCred();
+  };
+
+  const fetchekycCred = async () => {
+    console.log('fetch');
+    try {
+      console.log('token', token);
+      const response = await axios.get(
+        'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-credentials',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Correct placement of headers
+          },
+        },
+      );
+      console.log('response', response.data); // Update state with API data
+      fetchUserDetails();
+    } catch (err: any) {
+      console.log('error', err.message); // Handle error
+    }
+  };
+
+  const fetchUserDetails = async () => {
+    console.log('fetchdetails');
+    try {
+      console.log('token', token);
+      const response = await axios.get(
+        'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-profile',
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // Correct placement of headers
+          },
+        },
+      );
+      console.log('responseuserdetails', response.data); // Update state with API data
+    } catch (err: any) {
+      console.log('error', err.message); // Handle error
+    }
+  };
+
+  const performVerification = async () => {
+    let decodedClientId = Buffer.from(clientid, 'base64').toString('utf8');
+    let decodedSecretKey = Buffer.from(secretkey, 'base64').toString('utf8');
+
+    if (!decodedClientId || !decodedSecretKey) {
+      console.error('Invalid input format!');
+      return;
+    }
+
+    let dataDictionary = {
+      reference: 'uniqueReference',
+      country: '',
+      language: 'EN',
+      email: 'ad@example.com',
+      callback_url:
+        'https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-callback',
+      redirect_url: 'https://www.mydummy.shuftipro.com/',
+      verification_mode: 'image',
+      show_consent: '1',
+      show_privacy_policy: '1',
+      show_results: '1',
+      allow_online: '1',
+      allow_offline: '0',
+    };
+
+    if (faceVerification) {
+      dataDictionary.face = {
+        proof: '',
+        allow_online: '1',
+        allow_offline: '0',
+        document_number: '',
+        expiry_date: '',
+        issue_date: '',
+      };
+    }
+
+    if (documentVerification) {
+      dataDictionary.document = {
+        supported_types: ['passport', 'id_card', 'driving_license'],
+        name: {
+          first_name: firstNameStr,
+          middle_name: middileNameStr,
+          last_name: lastNameStr,
+        },
+        backside_proof_required: '1',
+        dob: dobStr,
+        allow_online: '1',
+        allow_offline: '0',
+      };
+    }
+
+    let authKeys = {
+      auth_type: 'basic_auth',
+      client_id: decodedClientId,
+      secret_key: decodedSecretKey,
+    };
+
+    try {
+      const response = await axios.post(
+        'https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-response-callback',
+        JSON.stringify(dataDictionary),
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        },
+      );
+
+      const result = response.data;
+      console.log('Response from SDK:', result);
+
+      if (result.message === 'Success') {
+        Alert.alert('Success!', 'eKYC verification completed.', [
+          {
+            text: 'Okay',
+            onPress: () => navigation.popToTop(),
+          },
+        ]);
+      } else {
+        Alert.alert('Error', 'Verification failed. Please retry.');
+      }
+    } catch (error) {
+      console.error('Error during verification:', error);
+    }
+  };
+
+  const handleButtonPress = () => {
+    if (startBtnTitle === 'Retry') {
+      handleRetry();
+    } else {
+      performVerification();
+    }
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
+    <View style={{flex: 1}}>
+      <WebView
+        source={{uri: 'https://cb.qqpay.my'}}
+        onMessage={handleWebViewMessage} // Listen for messages
+        originWhitelist={['*']}
+        onError={error => console.log('WebView error: ', error.nativeEvent)}
+        onHttpError={error => console.log('HTTP error: ', error.nativeEvent)}
       />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
