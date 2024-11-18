@@ -1,0 +1,132 @@
+import UIKit
+import WebKit
+class ViewController: UIViewController,WKUIDelegate,WKScriptMessageHandler,WKNavigationDelegate 
+{
+    @IBOutlet var customView : UIView!
+     @IBOutlet var eKycWebView: WKWebView!
+    var outputFile : URL!
+   // var webView: WKWebView!
+        override func loadView()
+    {
+            let preferences = WKWebpagePreferences()
+            //preferences.allowsContentJavaScript = true
+            if #available(iOS 14.0, *) {
+                preferences.allowsContentJavaScript = true
+            } else {
+                // Fallback on earlier versions
+            }
+            let webConfiguration = WKWebViewConfiguration()
+            webConfiguration.defaultWebpagePreferences = preferences
+            let contentController = WKUserContentController()
+            contentController.add(self, name: "initEKYC")
+            webConfiguration.userContentController = contentController
+            eKycWebView = WKWebView(frame: CGRectMake(0, 0, 120, 200), configuration: webConfiguration)
+            eKycWebView.uiDelegate = self
+            eKycWebView.navigationDelegate=self
+            //To disable pinch/zoom
+            let source: String = "var meta = document.createElement('meta');" +
+                "meta.name = 'viewport';" +
+                "meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';" +
+                "var head = document.getElementsByTagName('head')[0];" +
+                "head.appendChild(meta);"
+            let script: WKUserScript = WKUserScript(source: source, injectionTime: .atDocumentEnd, forMainFrameOnly: true)
+            eKycWebView.configuration.userContentController.addUserScript(script)
+        
+        customView=eKycWebView
+        view = customView
+        self.view.bringSubviewToFront(customView)
+    }
+    override func viewDidLoad()
+    {
+        super.viewDidLoad()
+        let myURL = URL(string:"https://eremitter.softdevels.com/")//UAT
+    //   let myURL = URL(string:"https://qrateonline.qqpay.io/")//Prod
+         let myRequest = URLRequest(url: myURL!)
+         eKycWebView.load(myRequest)
+        self.view.addSubview(customView)
+        customView.addSubview(eKycWebView)
+    }
+
+    func downloadBase64(_ base64DataUri: String) {
+        if let commaIndex = base64DataUri.firstIndex(of: ",") {
+            let base64Content = String(base64DataUri[base64DataUri.index(after: commaIndex)...])
+
+            if let data = Data(base64Encoded: base64Content) {
+                let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                 outputFile = documentsDirectory.appendingPathComponent("QQpay\(Int(Date().timeIntervalSince1970)).pdf")
+
+                do {
+                    try data.write(to: outputFile)
+                    DispatchQueue.main.async {
+                        let activityVC = UIActivityViewController(activityItems: [self.outputFile!], applicationActivities: nil)
+                        activityVC.popoverPresentationController?.sourceView = self.view
+                        activityVC.popoverPresentationController?.sourceRect = self.view.frame
+                        activityVC.popoverPresentationController?.barButtonItem = self.navigationItem.rightBarButtonItem
+                       self.present(activityVC, animated: true, completion: nil)
+                    }
+                    print("File downloaded.")
+                } catch {
+                    print("Fail to download.")
+                    print(error)
+                }
+            }
+        }
+    }
+
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        print(message.body)
+        
+        if (message.name == "initEKYC")
+        {
+               print("\(message.body)")
+            let string = message.body
+            UserDefaults.standard.set(string, forKey: "AuthToken")
+            if let loadedString = UserDefaults.standard.string(forKey: "AuthToken")
+            {
+                print(loadedString) // "Hello World"
+               
+            }
+            let vc = self.storyboard?.instantiateViewController(withIdentifier: "QQPayDeclaration") as! QQPayDeclaration
+            self.navigationController?.pushViewController(vc, animated: true)
+          }
+       }
+ 
+}
+
+extension ViewController: WKDownloadDelegate 
+{
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+        
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        download.delegate = self
+    }
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse, suggestedFilename: String, completionHandler: @escaping (URL?) -> Void) {
+        print("decideDestinationUsing")
+        print("Urlresponse \(response)")
+        let temporaryDir = NSTemporaryDirectory()
+        let fileName = temporaryDir + "/" + suggestedFilename
+        let url = URL(fileURLWithPath: fileName)
+        let strURL = response.url?.absoluteString ?? ""
+        self.downloadBase64(strURL)
+        completionHandler(url)
+
+    }
+    
+    func download(_ download: WKDownload, didFailWithError error: Error, resumeData: Data?) {
+        print("download failed \(error)")
+    }
+    
+    func downloadDidFinish(_ download: WKDownload) {
+        print("download finish")
+        
+    }
+    
+    
+    
+    
+}
+
+

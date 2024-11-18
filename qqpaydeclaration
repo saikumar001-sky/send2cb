@@ -1,0 +1,464 @@
+//
+//  QQPayDeclaration.swift
+//  eKycShuftipro
+//
+//  Created by Maninder Bhullar on 06/01/23.
+//
+
+import UIKit
+import ShuftiPro
+
+class QQPayDeclaration: UIViewController {
+    var faceVerification = false
+    var documentVerification = false
+    var dataDictionary = Dictionary<String, Any>()
+    var clientid : String = ""
+    var secretkey : String = ""
+    var parametersToAPI : String = ""
+    var firstNameStr : String = ""
+    var lastNameStr : String = ""
+    var middileNameStr : String = ""
+    var dobStr : String = ""
+
+
+  //  let clientIdStr : String  = (UserDefaults.standard.string(forKey: "client_id"))! //"f4e86473095c94fdffbedb3aa60ada96f602416753cca4c87c8aa92c257c6308" // your client id here
+  //  let secretKeyStr: String  = (UserDefaults.standard.string(forKey: "secret_key"))! //"zkEk7eclYUp6ntgmbUYFylx6qRzyf92w" // your secret key here
+    let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+    var authKeys = Dictionary<String, String>()
+    var configs = Dictionary<String, Any>()
+    
+    
+    @IBOutlet weak var txtView: UITextView!
+    @IBOutlet var startBtn : UIButton!
+    @IBOutlet weak var bgViewAuth: UIView!
+    @IBOutlet weak var lbl_notAuth: UILabel!
+    @IBOutlet weak var scrollView: UIScrollView!
+    @IBOutlet weak var startVerifyBtn: UIButton!
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        self.scrollView.backgroundColor = UIColor.white
+        self.txtView.backgroundColor = UIColor.white
+
+        let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+        print(AuthToken)
+        let bearAuthToken = "Bearer "+AuthToken
+        print(bearAuthToken)
+
+        if AuthToken.count == 0
+        {
+            print("str is nil or empty")
+            self.startBtn.isUserInteractionEnabled = true
+            self.startBtn.backgroundColor=UIColor.systemGray
+            DispatchQueue.main.async
+            {
+                self.startBtn.setTitle("Retry", for: .normal)
+            }
+        }
+        else
+        {
+        var request = URLRequest(url: URL(string: "https://user-service.softdevels.com/api/v1/user/ekyc-credentials")!) //UAT
+        // var request = URLRequest(url: URL(string: "https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-credentials")!) //Prod
+
+            request.httpMethod = "GET"
+            request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.addValue(bearAuthToken, forHTTPHeaderField: "Authorization")
+            
+            let session = URLSession.shared
+            let task = session.dataTask(with: request, completionHandler: { data, response, error -> Void in
+                print(response!)
+                do {
+                    let json = try JSONSerialization.jsonObject(with: data!) as! Dictionary<String, AnyObject>
+                    print(json)
+                    let statusCode = json["status_code"] as?  Int
+                    if statusCode == 200
+                    {
+                        DispatchQueue.main.sync {
+                            self.getFirstLastMiddileNamesFromAPI()
+                            if let datalist = json["data"] as? [[String: Any]] {// Parse an array containing dictionaries
+                                if datalist.count > 0 {
+                                    // You should use a loop here but I'm just doing this way to show an example
+                                    if let clientId = datalist[0]["client_id"] as? String { // Parse a string from dictionary
+                                        UserDefaults.standard.set(clientId, forKey: "client_id")
+                                        self.clientid = clientId
+                                    }
+                                    if let secretKey = datalist[0]["secret_key"] as? String { // Parse a string from dictionary
+                                        UserDefaults.standard.set(secretKey, forKey: "secret_key")
+                                        self.secretkey = secretKey
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        DispatchQueue.main.sync {
+                            self.scrollView.isHidden=true
+                            self.bgViewAuth.isHidden=false
+                            self.startBtn.isUserInteractionEnabled = false
+                            self.startBtn.backgroundColor=UIColor.systemGray
+                        }
+                    }
+                } catch {
+                    print("error")
+                }
+            })
+            task.resume()
+        }
+        startBtn.addTarget(self, action: #selector(pressed), for: .touchUpInside)
+    }
+
+    override func viewWillAppear(_ animated: Bool) {
+
+    }
+
+
+    override func viewDidAppear(_ animated: Bool) {
+        faceVerification = true
+        documentVerification = true
+
+    }
+   
+    @objc func getFirstLastMiddileNamesFromAPI()
+    {
+        let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+        print(AuthToken)
+        let bearAuthToken = "Bearer "+AuthToken
+        print(bearAuthToken)
+        
+        var request = URLRequest(url: URL(string: "https://user-service.softdevels.com/api/v1/user/ekyc-profile")!) //UAT
+      // var request = URLRequest(url: URL(string: "https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-profile")!) //Prod
+
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue(bearAuthToken, forHTTPHeaderField: "Authorization")
+        
+        let session = URLSession.shared
+        let task = session.dataTask(with: request, completionHandler: { data, response, error -> Void in
+            print(response!)
+            do {
+                let json = try JSONSerialization.jsonObject(with: data!) as! Dictionary<String, AnyObject>
+                print(json)
+                let statusCode = json["status_code"] as?  Int
+                if statusCode == 200
+                {
+                    DispatchQueue.main.sync {
+                        self.scrollView.isHidden=false
+                        self.bgViewAuth.isHidden=true
+                        self.startBtn.isUserInteractionEnabled = true
+                        self.startBtn.backgroundColor=UIColor.systemOrange
+                        if let datalist = json["data"] as? [[String: Any]] {// Parse an array containing dictionaries
+                            if datalist.count > 0 {
+                                // You should use a loop here but I'm just doing this way to show an example
+                                if let fName = datalist[0]["first_name"] as? String
+                                {// Parse a string from dictionary
+                                    self.firstNameStr = fName
+                                }
+                                if let lName = datalist[0]["last_name"] as? String
+                                {
+                                    self.lastNameStr = lName
+                                }
+                                if let mName = datalist[0]["middle_name"] as? String
+                                {
+                                    self.middileNameStr = mName
+                                }
+                                if let dob = datalist[0]["dob"] as? String
+                                {
+                                    self.dobStr = dob
+                                }
+                                
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    DispatchQueue.main.sync {
+                        self.scrollView.isHidden=true
+                        self.bgViewAuth.isHidden=false
+                        self.startBtn.isUserInteractionEnabled = false
+                        self.startBtn.backgroundColor=UIColor.systemGray
+                    }
+                }
+            } catch {
+                print("error")
+            }
+        })
+        task.resume()
+    }
+    
+    @objc  func pressed(sender: UIButton) {
+        
+        if sender.titleLabel!.text == "Retry"
+        {
+            let alert = UIAlertController(title: "Alert!", message: "Fail to start eKYC", preferredStyle: .alert)
+            let okAction = UIAlertAction(title: "Ok", style:
+                UIAlertAction.Style.default) {
+                   UIAlertAction in
+                   print("Yes Pressed")
+                DispatchQueue.main.async
+                {
+                    self.navigationController?.popViewController(animated: true)
+                }
+            }
+            alert.addAction(okAction)
+            self.present(alert, animated: true, completion: nil)
+            
+           
+        }
+        else
+        {
+            let shufti = ShuftiPro()
+            let uniqueReference = shufti.getUniqueReference()
+            if faceVerification == true || documentVerification == true
+            {
+                dataDictionary = [
+                    "reference": uniqueReference,
+                    "country": "",
+                    "language": "EN",
+                    "email": "ad@example.com",
+                  // "callback_url": "https://user-service.softdevels.com/api/v1/user/ekyc-callback",//UAT
+                     "callback_url": "https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-callback",//Prod
+                    "redirect_url" : "https://www.mydummy.shuftipro.com/",
+                    "verification_mode" : "image",
+                    "show_consent" : "1",
+                    "show_privacy_policy" : "1",
+                    "show_results" : "1",
+                    "allow_online" : "1",
+                    "allow_offline" : "0",
+                    "document_number" : "",
+                    "expiry_date" : "",
+                    "issue_date" : "",
+
+                ]
+                //MARK:- Ocr
+                if faceVerification == true {
+                    dataDictionary["face"] = [
+                        "proof": "",
+                        "allow_online" : "1",
+                        "allow_offline" : "0",
+                        "document_number" : "",
+                        "expiry_date" : "",
+                        "issue_date" : "",
+                    ]
+                }
+                if documentVerification == true  {
+                    
+                    dataDictionary["document"] = [
+                        "supported_types": [
+                            "passport",
+                            "id_card",
+                            "driving_license"
+                           // "credit_or_debit_card"
+                        ],
+                        "proof": "",
+                        "additional_proof" :"",
+                        
+                        "name": ["first_name": firstNameStr,
+                                 "middle_name": middileNameStr,
+                                 "last_name" : lastNameStr
+                                ],
+                        "backside_proof_required": "1",
+                        "dob": dobStr,
+                        "document_number": "",
+                        "expiry_date": "",
+                        "issue_date": "",
+                        "fetch_enhanced_data": "",
+                        "allow_online" : "1",
+                        "allow_offline" : "0",
+                    ]
+               }
+                configs = [
+                    "open_webview" : "false",
+                    "async" : "false",
+                    "dark_mode" : "false"
+                ]
+                var decodedClientidString = ""
+                if let decodedClientid = Data(base64Encoded: clientid) {
+                    decodedClientidString = String(data: decodedClientid, encoding: .utf8)!
+                }
+                
+                if !decodedClientidString.isEmpty {
+                    print(decodedClientidString)
+                } else {
+                    print("Oops, invalid input format!")
+                }
+                var decodedSecretkeyString = ""
+                if let decodedSecretkey = Data(base64Encoded: secretkey) {
+                    decodedSecretkeyString = String(data: decodedSecretkey, encoding: .utf8)!
+                }
+                
+                if !decodedSecretkeyString.isEmpty {
+                    print(decodedSecretkeyString)
+                } else {
+                    print("Oops, invalid input format!")
+                }
+                
+                var authKeys = Dictionary<String, String>()
+                authKeys = [
+                                "auth_type" : "basic_auth",
+                                "client_id" : decodedClientidString,//"f4e86473095c94fdffbedb3aa60ada96f602416753cca4c87c8aa92c257c6308", // clientid,//decodedClientidString,
+                                "secret_key": decodedSecretkeyString//"zkEk7eclYUp6ntgmbUYFylx6qRzyf92w"//secretkey,//decodedSecretkeyString
+                            ]
+
+              //  self.sendShuftiProRequestToAPI()
+                shufti.shuftiProVerification(requestObject: dataDictionary, authKeys: authKeys, parentVC: self, configs: configs)
+                {
+                    (result) in
+                     print("Got response from sdk: \(result)") // Callback response for verification verified/declined
+                    do{
+                        let jsonData = try JSONSerialization.data(withJSONObject: result, options: JSONSerialization.WritingOptions.prettyPrinted)
+                        let jsonStringData =  NSString(data: jsonData as Data, encoding: NSUTF8StringEncoding)! as String
+                        self.parametersToAPI = "{\n\"payload\": \(jsonStringData)\n}"
+                        print("parametersToAPI:::\(self.parametersToAPI)")
+                        
+                       // self.sendShuftiProRequestResponseToAPI()
+
+                    }catch{
+                        print(error.localizedDescription)
+                    }
+                        let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+                        let bearAuthToken = "Bearer "+AuthToken
+                        let jsonData = self.parametersToAPI.data(using: .utf8)
+                    
+                         let url = URL(string: "https://user-service.softdevels.com/api/v1/user/ekyc-response-callback")! //UAT
+                      // let url = URL(string: "https://qrateonline.qqpay.io/userservice/api/v1/user/ekyc-response-callback")! //Prod
+                        var request = URLRequest(url: url)
+                        request.httpMethod = "POST"
+                        request.httpBody = jsonData
+                        request.addValue(bearAuthToken, forHTTPHeaderField: "Authorization")
+                        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+                        
+                        let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                            guard let data = data, error == nil else
+                            {
+                                print(error?.localizedDescription ?? "No data")
+                                return
+                            }
+                            let responseJSON = try? JSONSerialization.jsonObject(with: data, options: [])
+                            print("responseJSON is : \(String(describing: responseJSON))" )
+
+                            if let responseJSON = responseJSON as? [String: Any]
+                            {
+                                let responseFromAPI = responseJSON as NSDictionary
+                                print("responseFromAPI is : \(responseFromAPI)" )
+                                if responseFromAPI.value(forKey: "message") as? String == "Success"
+                                {
+                                    let alert = UIAlertController(title: "Success!", message: "eKYC verification completed.", preferredStyle: .alert)
+                                    let okAction = UIAlertAction(title: "Okay", style:
+                                        UIAlertAction.Style.default) {
+                                           UIAlertAction in
+                                           print("Okay Pressed")
+                                        DispatchQueue.main.async
+                                        {
+                                            self.navigationController?.popToRootViewController(animated: true)
+                                        }
+                                    }
+                                    alert.addAction(okAction)
+                                    DispatchQueue.main.async
+                                    {
+                                        self.present(alert, animated: true, completion: nil)
+                                    }
+                                }
+                                else
+                                {
+                                    DispatchQueue.main.async
+                                    {
+                                        self.startBtn.setTitle("Retry", for: .normal)
+                                    }
+                                }
+                            }
+                            else
+                            {
+                             
+                                DispatchQueue.main.async
+                                {
+                                    self.startBtn.setTitle("Retry", for: .normal)
+                                }
+                            }
+                        }
+                        task.resume()
+                }
+            }
+        }
+    }
+    @objc func  sendShuftiProRequestResponseToAPI()
+    {
+        let jsonData = self.parametersToAPI.data(using: .utf8)
+        let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+        let bearAuthToken = "Bearer "+AuthToken
+
+        let url = URL(string: "https://cron-service.softdevels.com/api/v1/plugin/add-sdk-response-logs")! //UAT
+     //   let url = URL(string: "https://qrateonline.qqpay.io/cronservice/api/v1/plugin/add-sdk-response-logs")! //Prod
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = jsonData
+        request.addValue(bearAuthToken, forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let session = URLSession.shared
+        let task = session.dataTask(with: request, completionHandler: { data, response, error -> Void in
+            print(response!)
+            do {
+                let json = try JSONSerialization.jsonObject(with: data!) as! Dictionary<String, AnyObject>
+                print(json)
+                let statusCode = json["Status Code"] as?  Int
+                if statusCode == 200
+                {
+                    print("Success sendShuftiProRequestResponseToAPI")
+                }
+                
+            } catch {
+                print("error")
+            }
+        })
+
+        task.resume()
+        
+    }
+    @objc func sendShuftiProRequestToAPI()
+    {
+        let jsonData = try! JSONSerialization.data(withJSONObject: dataDictionary, options: JSONSerialization.WritingOptions.prettyPrinted)
+        let AuthToken : String =  (UserDefaults.standard.string(forKey: "AuthToken"))!// your AuthToken here
+        let bearAuthToken = "Bearer "+AuthToken
+
+        let url = URL(string: "https://cron-service.softdevels.com/api/v1/plugin/add-sdk-request-logs")! //UAT
+     //   let url = URL(string: "https://qrateonline.qqpay.io/cronservice/api/v1/plugin/add-sdk-request-logs")! //Prod
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.httpBody = jsonData
+        request.addValue(bearAuthToken, forHTTPHeaderField: "Authorization")
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let session = URLSession.shared
+        let task = session.dataTask(with: request, completionHandler: { data, response, error -> Void in
+            print(response!)
+            do {
+                let json = try JSONSerialization.jsonObject(with: data!) as! Dictionary<String, AnyObject>
+                print(json)
+                let statusCode = json["Status Code"] as?  Int
+                if statusCode == 200
+                {
+                    print("Success sendShuftiProRequestToAPI")
+                }
+                
+            } catch {
+                print("error")
+            }
+        })
+
+        task.resume()
+        
+    }
+    /*
+    // MARK: - Navigation
+
+    // In a storyboard-based application, you will often want to do a little preparation before navigation
+    override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        // Get the new view controller using segue.destination.
+        // Pass the selected object to the new view controller.
+    }
+    */
+
+}
