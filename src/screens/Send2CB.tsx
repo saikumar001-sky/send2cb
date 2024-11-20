@@ -72,7 +72,10 @@ const Send2CB = (props: AppProps) => {
       if (response?.data?.status_code == 200) {
         const ekycUserData = response.data.data[0];
         // setekycUserData(ekycUserData);
-        navigation.navigate('StartKyc', {ekycUserData, ekycCred});
+        const tokenData={
+          token,
+        }
+        navigation.navigate('StartKyc', {ekycUserData, ekycCred,tokenData});
 
         // handleButtonPress();
       }

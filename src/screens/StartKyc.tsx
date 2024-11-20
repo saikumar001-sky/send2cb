@@ -8,7 +8,6 @@ import {
   Image,
 } from 'react-native';
 import {NativeModules} from 'react-native';
-// import { Icon } from '@rneui/themed';
 
 const {ShuftiproReactNativeModule} = NativeModules;
 import {Buffer} from 'buffer';
@@ -28,11 +27,14 @@ type StartKycRouteParams = {
     secret_key: string;
     authorization: string;
   };
+  tokenData:{
+    token: string;
+  }
 };
 
 const StartKyc = () => {
   const route = useRoute<RouteProp<{params: StartKycRouteParams}, 'params'>>();
-  const {ekycUserData, ekycCred} = route.params || {}; // Get the userData from navigation params
+  const {ekycUserData, ekycCred,tokenData} = route.params || {}; // Get the userData from navigation params
 
   const generateUniqueReference = (): string => {
     const timestamp = Date.now().toString(); // Unique timestamp
@@ -41,17 +43,11 @@ const StartKyc = () => {
     return uniqueReference.slice(0, 250); // Ensure it's within the maximum limit
   };
 
-  const fetchekycCred = async (token: string) => {
-    console.log('tken', token);
+  const callBackEkycRes = async (body:any) => {
     try {
-      const response = await postEkycRes(token);
-
+      const response = await postEkycRes(tokenData?.token,body);
       if (response?.data?.status_code == 200) {
-        console.log('responsedata[0]', response?.data?.data[0]);
-        const ekycCred = response.data.data[0];
-
-        // setekycCred(ekycCred);
-        fetchUserDetails(token, ekycCred);
+        console.log('postResponse', response?.data?.data[0]);
       }
     } catch (err: any) {
       console.log('error22', err.message); // Handle error
@@ -89,10 +85,6 @@ const StartKyc = () => {
         secret_key: decodedSecretKey,
       };
       console.log('authkeys', authKeys);
-      // const configObject = {
-      //   base_url: 'api.shuftipro.com',
-      //   consent_age: 16,
-      // };
       const configObject = {
         open_webview: false,
         asyncRequest: false,
@@ -158,16 +150,15 @@ const StartKyc = () => {
 
           if (event === 'verification.accepted') {
             // Verification accepted callback
-
-            console.log('event1veri');
+            callBackEkycRes(parsedResponse)
           }
           if (event === 'verification.declined') {
-            console.log('2222');
+            console.log('verification Declined');
             // Verification declined callback
           }
           if (event === 'verification.cancelled') {
             // This callback is returned when verification is cancelled midway by the end user
-            console.log('3333');
+            console.log('Verification cancelled');
           }
         },
       );
@@ -177,7 +168,6 @@ const StartKyc = () => {
     console.log('handle');
     performVerification();
   };
-  // let url = URL(string: "https://user-service.softdevels.com/api/v1/user/ekyc-response-callback")! //UAT
 
   return (
     <View style={styles.container}>
@@ -235,8 +225,10 @@ const StartKyc = () => {
       <View
         style={{
           flexDirection: 'row',
+          justifyContent:"center",
+          marginBlock:5
         }}>
-        <Text>Powered By</Text>
+        <Text>Powered By QQPay</Text>
       </View>
     </View>
   );

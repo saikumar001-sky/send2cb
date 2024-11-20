@@ -18,7 +18,7 @@ const Navigation = () => {
         <Stack.Screen
           name="StartKyc"
           component={StartKyc}
-          options={{title: 'StartKyc', headerShown: true}}
+          options={{title: 'Send2CB', headerShown: true}}
         />
       </Stack.Navigator>
     </NavigationContainer>

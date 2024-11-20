@@ -33,7 +33,7 @@ export const getfetchUserDetails = async (token: any) => {
   }
 };
 
-export const postEkycRes = async (token: any) => {
+export const postEkycRes = async (token: any, body: any) => {
   try {
     const response = await axios.post(
       'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-profile',
@@ -42,6 +42,7 @@ export const postEkycRes = async (token: any) => {
           Authorization: `Bearer ${token}`, // Correct placement of headers
         },
       },
+      body,
     );
     return getAPIResponse(response);
   } catch (err: any) {
