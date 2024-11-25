@@ -1,10 +1,14 @@
 import axios from 'axios';
 import {getAPIResponse} from './getAPIResponse';
+// UAT Base URL
+// const baseUrl = 'https://qrateonline-uat.qqpay.my/userservice/api/v1';
+//Prod Base URL
+const baseUrl = 'https://qrateonline.qqpay.io/userservice/api/v1';
 
 export const getfetchekycCred = async (token: any) => {
   try {
     const response = await axios.get(
-      'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-credentials',
+      `${baseUrl}/user/ekyc-credentials`,
       {
         headers: {
           Authorization: `Bearer ${token}`, // Correct placement of headers
@@ -20,7 +24,7 @@ export const getfetchekycCred = async (token: any) => {
 export const getfetchUserDetails = async (token: any) => {
   try {
     const response = await axios.get(
-      'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-profile',
+      `${baseUrl}/user/ekyc-profile`,
       {
         headers: {
           Authorization: `Bearer ${token}`, // Correct placement of headers
@@ -36,7 +40,7 @@ export const getfetchUserDetails = async (token: any) => {
 export const postEkycRes = async (token: any, body: any) => {
   try {
     const response = await axios.post(
-      'https://qrateonline-uat.qqpay.my/userservice/api/v1/user/ekyc-profile',
+       `${baseUrl}/user/ekyc-profile`,
       {
         headers: {
           Authorization: `Bearer ${token}`, // Correct placement of headers
